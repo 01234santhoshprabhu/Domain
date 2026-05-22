@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Domain Jan 2026 Dashboard</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --ink: #1f2933;
+      --muted: #64748b;
+      --line: #dbe3ea;
+      --accent: #0f766e;
+      --accent-dark: #115e59;
+      --warn: #b45309;
+      --blue: #2563eb;
+      --chip: #edf7f5;
+      --shadow: 0 10px 30px rgba(31, 41, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      background: #102a43;
+      color: #fff;
+      padding: 22px 28px;
+      border-bottom: 4px solid var(--accent);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    header p {
+      margin: 7px 0 0;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    main {
+      width: min(1480px, calc(100% - 32px));
+      margin: 18px auto 32px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .upload-box,
+    .panel,
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .upload-box {
+      padding: 16px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .upload-box label {
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    input[type="file"],
+    input[type="search"],
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 14px;
+      padding: 10px 12px;
+      min-height: 42px;
+    }
+
+    input[type="file"] {
+      padding: 8px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .stat .value {
+      font-size: 25px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stat .label {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-head {
+      padding: 15px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+      background: #fbfdfe;
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 150px;
+      gap: 10px;
+    }
+
+    .table-wrap {
+      max-height: 650px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 650px;
+      font-size: 13px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #e6f1ef;
+      color: #12312d;
+      text-align: left;
+      font-weight: 800;
+      border-bottom: 1px solid var(--line);
+      padding: 10px;
+    }
+
+    td {
+      border-bottom: 1px solid #eef2f6;
+      padding: 9px 10px;
+      vertical-align: top;
+    }
+
+    tr:hover td {
+      background: #fafafa;
+    }
+
+    .candidate-tools {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+    }
+
+    .candidate-list {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      max-height: 650px;
+      overflow: auto;
+    }
+
+    .result-card {
+      box-shadow: none;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .identity {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .email {
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .mini {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .pill {
+      background: var(--chip);
+      color: #134e4a;
+      border: 1px solid #b9e2db;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pill.blue {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border-color: #bfdbfe;
+    }
+
+    .pill.warn {
+      color: var(--warn);
+      background: #fff7ed;
+      border-color: #fed7aa;
+    }
+
+    .course-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 10px;
+    }
+
+    .course-item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px;
+      background: #fff;
+    }
+
+    .course-title {
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .course-meta {
+      margin-top: 7px;
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .empty {
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      min-height: 42px;
+      padding: 0 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: var(--accent-dark);
+    }
+
+    @media (max-width: 980px) {
+      .topbar,
+      .layout,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      main {
+        width: min(100% - 20px, 1480px);
+      }
+
+      header {
+        padding: 18px 16px;
+      }
+
+      .controls,
+      .candidate-tools {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        min-width: 560px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Domain Jan 2026 Dashboard</h1>
+    <p>Overall domain courses and candidate-wise course details</p>
+  </header>
+
+  <main>
+    <section class="topbar" aria-label="CSV files">
+      <div class="upload-box">
+        <label for="domainFile">Domain list CSV</label>
+        <input id="domainFile" type="file" accept=".csv">
+        <div id="domainStatus" class="status">Auto-loading domain_list.csv</div>
+      </div>
+      <div class="upload-box">
+        <label for="scoreFile">Student score CSV</label>
+        <input id="scoreFile" type="file" accept=".csv">
+        <div id="scoreStatus" class="status">Auto-loading student_score.csv</div>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Summary">
+      <div class="stat">
+        <div id="domainCount" class="value">0</div>
+        <div class="label">Domain course rows</div>
+      </div>
+      <div class="stat">
+        <div id="courseCount" class="value">0</div>
+        <div class="label">Unique course names</div>
+      </div>
+      <div class="stat">
+        <div id="candidateCount" class="value">0</div>
+        <div class="label">Candidates found</div>
+      </div>
+      <div class="stat">
+        <div id="scoreCount" class="value">0</div>
+        <div class="label">Student score rows</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Overall Domain List</h2>
+          <div class="controls">
+            <input id="domainSearch" type="search" placeholder="Search course, ID, or type">
+            <select id="typeFilter" aria-label="Course type filter">
+              <option value="">All types</option>
+              <option value="core">Core</option>
+              <option value="elective">Elective</option>
+            </select>
+          </div>
+          <div id="domainResultStatus" class="status">Load domain list to view courses</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Course</th>
+                <th>ID</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="domainTable"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Domain Student Taken Details</h2>
+          <div class="candidate-tools">
+            <input id="candidateSearch" type="search" placeholder="Search candidate email, course ID, or NPTEL ID">
+            <button id="clearSearch" type="button">Clear</button>
+          </div>
+          <div id="candidateResultStatus" class="status">Load student score file to search candidates</div>
+        </div>
+        <div id="candidateList" class="candidate-list">
+          <div class="empty">Candidate details will appear here.</div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      domainRows: [],
+      scoreRows: [],
+      domainById: new Map(),
+      candidates: new Map()
+    };
+
+    const els = {
+      domainFile: document.getElementById('domainFile'),
+      scoreFile: document.getElementById('scoreFile'),
+      domainStatus: document.getElementById('domainStatus'),
+      scoreStatus: document.getElementById('scoreStatus'),
+      domainCount: document.getElementById('domainCount'),
+      courseCount: document.getElementById('courseCount'),
+      candidateCount: document.getElementById('candidateCount'),
+      scoreCount: document.getElementById('scoreCount'),
+      domainSearch: document.getElementById('domainSearch'),
+      typeFilter: document.getElementById('typeFilter'),
+      domainResultStatus: document.getElementById('domainResultStatus'),
+      domainTable: document.getElementById('domainTable'),
+      candidateSearch: document.getElementById('candidateSearch'),
+      clearSearch: document.getElementById('clearSearch'),
+      candidateResultStatus: document.getElementById('candidateResultStatus'),
+      candidateList: document.getElementById('candidateList')
+    };
+
+    function parseCsv(text) {
+      const rows = [];
+      let row = [];
+      let value = '';
+      let quoted = false;
+
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i];
+        const next = text[i + 1];
+
+        if (char === '"' && quoted && next === '"') {
+          value += '"';
+          i += 1;
+        } else if (char === '"') {
+          quoted = !quoted;
+        } else if (char === ',' && !quoted) {
+          row.push(value);
+          value = '';
+        } else if ((char === '\n' || char === '\r') && !quoted) {
+          if (char === '\r' && next === '\n') i += 1;
+          row.push(value);
+          if (row.some(cell => cell.trim() !== '')) rows.push(row);
+          row = [];
+          value = '';
+        } else {
+          value += char;
+        }
+      }
+
+      if (value !== '' || row.length) {
+        row.push(value);
+        if (row.some(cell => cell.trim() !== '')) rows.push(row);
+      }
+
+      return rows;
+    }
+
+    function clean(value) {
+      return String(value || '').trim();
+    }
+
+    function normalize(value) {
+      return clean(value).toLowerCase();
+    }
+
+    function uniqueCount(rows, key) {
+      return new Set(rows.map(row => normalize(row[key])).filter(Boolean)).size;
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString('en-IN');
+    }
+
+    function escapeHtml(value) {
+      return clean(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+    }
+
+    function rebuildDomainIndex() {
+      state.domainById = new Map();
+      state.domainRows.forEach(row => {
+        const id = clean(row.ID);
+        if (id) state.domainById.set(id, row);
+      });
+    }
+
+    function parseDomainList(text) {
+      const rows = parseCsv(text);
+      const data = rows.slice(1).map(cols => ({
+        Course: clean(cols[0]),
+        ID: clean(cols[1]),
+        Type: clean(cols[2])
+      })).filter(row => row.Course || row.ID || row.Type);
+
+      state.domainRows = data;
+      rebuildDomainIndex();
+      els.domainStatus.textContent = `${formatNumber(data.length)} rows loaded`;
+      renderStats();
+      renderDomainTable();
+      renderCandidates();
+    }
+
+    function getStudentIds(cols) {
+      const ids = [];
+      [2, 12, 14].forEach(index => {
+        clean(cols[index]).split('|').map(clean).filter(Boolean).forEach(id => ids.push(id));
+      });
+      return [...new Set(ids)];
+    }
+
+    function parseStudentScores(text) {
+      const rows = parseCsv(text);
+      const data = rows.slice(1).map(cols => {
+        const ids = getStudentIds(cols);
+        return {
+          email: clean(cols[0]),
+          courseId: clean(cols[1]),
+          nptelId: clean(cols[2]),
+          week: clean(cols[3]),
+          finalScore: clean(cols[4]),
+          inDomainSanthosh: clean(cols[5]),
+          typeSanthosh: clean(cols[6]),
+          inDomainHarini: clean(cols[7]),
+          typeHarini: clean(cols[8]),
+          ids,
+          typeA: clean(cols[13]),
+          typeB: clean(cols[15]),
+          raw: cols
+        };
+      }).filter(row => row.email || row.courseId || row.nptelId || row.ids.length);
+
+      state.scoreRows = data;
+      rebuildCandidates();
+      els.scoreStatus.textContent = `${formatNumber(data.length)} rows loaded`;
+      renderStats();
+      renderCandidates();
+    }
+
+    function rebuildCandidates() {
+      state.candidates = new Map();
+      state.scoreRows.forEach(row => {
+        const key = normalize(row.email) || `row-${state.candidates.size + 1}`;
+        if (!state.candidates.has(key)) {
+          state.candidates.set(key, {
+            email: row.email,
+            rows: []
+          });
+        }
+        state.candidates.get(key).rows.push(row);
+      });
+    }
+
+    function renderStats() {
+      els.domainCount.textContent = formatNumber(state.domainRows.length);
+      els.courseCount.textContent = formatNumber(uniqueCount(state.domainRows, 'Course'));
+      els.candidateCount.textContent = formatNumber(state.candidates.size);
+      els.scoreCount.textContent = formatNumber(state.scoreRows.length);
+    }
+
+    function renderDomainTable() {
+      const query = normalize(els.domainSearch.value);
+      const type = normalize(els.typeFilter.value);
+      const rows = state.domainRows.filter(row => {
+        const text = normalize(`${row.Course} ${row.ID} ${row.Type}`);
+        const typeOk = !type || normalize(row.Type) === type;
+        return typeOk && (!query || text.includes(query));
+      });
+
+      els.domainResultStatus.textContent = state.domainRows.length
+        ? `${formatNumber(rows.length)} matching rows`
+        : 'Load domain list to view courses';
+
+      const visibleRows = rows.slice(0, 600);
+      els.domainTable.innerHTML = visibleRows.map(row => `
+        <tr>
+          <td>${escapeHtml(row.Course)}</td>
+          <td>${escapeHtml(row.ID)}</td>
+          <td><span class="pill ${normalize(row.Type) === 'core' ? '' : 'blue'}">${escapeHtml(row.Type || 'Blank')}</span></td>
+        </tr>
+      `).join('');
+
+      if (!visibleRows.length) {
+        els.domainTable.innerHTML = '<tr><td colspan="3" class="empty">No domain list rows match.</td></tr>';
+      }
+    }
+
+    function matchDomainRows(scoreRow) {
+      const matches = [];
+      scoreRow.ids.forEach(id => {
+        const domain = state.domainById.get(id);
+        if (domain) {
+          matches.push({ id, course: domain.Course, type: domain.Type });
+        } else {
+          matches.push({ id, course: 'Not found in domain list', type: '' });
+        }
+      });
+      return matches;
+    }
+
+    function candidateMatches(candidate, query) {
+      if (!query) return true;
+      const rowsText = candidate.rows.map(row => {
+        const domainText = matchDomainRows(row).map(item => `${item.id} ${item.course} ${item.type}`).join(' ');
+        return `${row.email} ${row.courseId} ${row.nptelId} ${row.week} ${row.finalScore} ${row.inDomainSanthosh} ${row.typeSanthosh} ${row.inDomainHarini} ${row.typeHarini} ${domainText}`;
+      }).join(' ');
+      return normalize(rowsText).includes(query);
+    }
+
+    function renderCandidates() {
+      const query = normalize(els.candidateSearch.value);
+      const candidates = [...state.candidates.values()]
+        .filter(candidate => candidateMatches(candidate, query))
+        .sort((a, b) => a.email.localeCompare(b.email));
+
+      els.candidateResultStatus.textContent = state.scoreRows.length
+        ? `${formatNumber(candidates.length)} matching candidates`
+        : 'Load student score file to search candidates';
+
+      if (!state.scoreRows.length) {
+        els.candidateList.innerHTML = '<div class="empty">Candidate details will appear here.</div>';
+        return;
+      }
+
+      if (!candidates.length) {
+        els.candidateList.innerHTML = '<div class="empty">No candidate matches this search.</div>';
+        return;
+      }
+
+      const visible = candidates.slice(0, query ? 60 : 20);
+      els.candidateList.innerHTML = visible.map(candidate => {
+        const courseItems = candidate.rows.map(row => {
+          const domainMatches = matchDomainRows(row);
+          const foundCount = domainMatches.filter(item => item.course !== 'Not found in domain list').length;
+          const domainHtml = domainMatches.length ? domainMatches.map(item => `
+            <span class="pill ${item.course === 'Not found in domain list' ? 'warn' : normalize(item.type) === 'core' ? '' : 'blue'}">
+              ${escapeHtml(item.id)} - ${escapeHtml(item.type || 'No type')}
+            </span>
+          `).join('') : '<span class="pill warn">No domain ID</span>';
+
+          return `
+            <div class="course-item">
+              <div class="course-title">${escapeHtml(row.courseId || row.nptelId || 'Course')}</div>
+              <div class="course-meta">
+                <div>NPTEL ID: <b>${escapeHtml(row.nptelId || '-')}</b></div>
+                <div>Week: <b>${escapeHtml(row.week || '-')}</b> | Final score: <b>${escapeHtml(row.finalScore || '-')}</b></div>
+                <div>Matched in domain list: <b>${formatNumber(foundCount)}</b> of <b>${formatNumber(domainMatches.length)}</b></div>
+              </div>
+              <div class="pill-row" style="margin-top:9px">${domainHtml}</div>
+              <div class="course-meta">
+                ${domainMatches.map(item => `<div>${escapeHtml(item.id)}: ${escapeHtml(item.course)}${item.type ? ` (${escapeHtml(item.type)})` : ''}</div>`).join('')}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        const allIds = new Set(candidate.rows.flatMap(row => row.ids));
+        const scores = candidate.rows.map(row => Number(row.finalScore)).filter(score => Number.isFinite(score));
+        const average = scores.length ? (scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(1) : '-';
+
+        return `
+          <section class="result-card">
+            <div class="identity">
+              <div>
+                <div class="email">${escapeHtml(candidate.email || 'No email')}</div>
+                <div class="mini">${formatNumber(candidate.rows.length)} score rows | ${formatNumber(allIds.size)} unique domain IDs</div>
+              </div>
+              <div class="pill-row">
+                <span class="pill">Avg ${escapeHtml(average)}</span>
+                <span class="pill blue">${formatNumber(candidate.rows.length)} courses</span>
+              </div>
+            </div>
+            <div class="course-grid">${courseItems}</div>
+          </section>
+        `;
+      }).join('');
+
+      if (candidates.length > visible.length) {
+        els.candidateList.insertAdjacentHTML('beforeend', `<div class="empty">Showing ${formatNumber(visible.length)} of ${formatNumber(candidates.length)} candidates. Search more specifically to narrow it.</div>`);
+      }
+    }
+
+    els.domainFile.addEventListener('change', async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      els.domainStatus.textContent = 'Loading...';
+      parseDomainList(await readFile(file));
+    });
+
+    els.scoreFile.addEventListener('change', async event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      els.scoreStatus.textContent = 'Loading...';
+      parseStudentScores(await readFile(file));
+    });
+
+    els.domainSearch.addEventListener('input', renderDomainTable);
+    els.typeFilter.addEventListener('change', renderDomainTable);
+    els.candidateSearch.addEventListener('input', renderCandidates);
+    els.clearSearch.addEventListener('click', () => {
+      els.candidateSearch.value = '';
+      renderCandidates();
+    });
+
+    async function autoLoadCsv(path, parser, statusEl, label) {
+      try {
+        const response = await fetch(path, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        parser(await response.text());
+      } catch (error) {
+        statusEl.textContent = `Choose ${label} file`;
+      }
+    }
+
+    renderStats();
+    autoLoadCsv('domain_list.csv', parseDomainList, els.domainStatus, 'domain list');
+    autoLoadCsv('student_score.csv', parseStudentScores, els.scoreStatus, 'student score');
+  </script>
+</body>
+</html>
