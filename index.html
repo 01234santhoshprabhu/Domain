@@ -393,6 +393,62 @@
       return scoreRowsForEmail(email).filter(row => scoreDomainIds(row).includes(clean(domainId)));
     }
 
+    function otherDomainMatches(course, currentDomain) {
+      const courseId = clean(course.nptelId);
+      if (!courseId) return [];
+      return state.domainRows
+        .filter(item => clean(item.id) === courseId && normalize(item.course) !== normalize(currentDomain))
+        .map(item => ({ domain: item.course, type: item.type }));
+    }
+
+    function renderExtraCourseReuseCheck(row, courses) {
+      if (!courses.length) {
+        return `<div class="section-title">Extra Course Reuse Check</div>
+          <div class="empty">No course rows found to check extra/reusable courses.</div>`;
+      }
+
+      const base = courseSummary(courses);
+      const extraCore = Math.max(0, base.core - row.reqCore);
+      const extraElective = Math.max(0, base.elective - row.reqElective);
+      let removable = 0;
+      let overlapCount = 0;
+
+      const tableRows = courses.map(course => {
+        const remaining = courses.filter(item => item !== course);
+        const next = courseSummary(remaining);
+        const stillEligible = next.core >= row.reqCore && next.elective >= row.reqElective && next.weeks >= row.weeksRequired && next.avg >= 60;
+        const overlaps = otherDomainMatches(course, row.domain);
+        if (stillEligible) removable += 1;
+        if (overlaps.length) overlapCount += 1;
+        const overlapText = overlaps.length
+          ? overlaps.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
+          : '-';
+        const reason = stillEligible
+          ? `After remove: Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`
+          : `Needed now: remove gives Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`;
+
+        return `<tr>
+          <td>${html(course.type)}</td>
+          <td>${html(course.nptelId)}</td>
+          <td>${html(course.courseName)}</td>
+          <td>${html(course.maxMark)}</td>
+          <td>${html(course.week)}</td>
+          <td>${stillEligible ? '<span class="pill pass">Can save for next time</span>' : '<span class="pill warn">Keep for this domain</span>'}</td>
+          <td>${html(reason)}</td>
+          <td>${overlapText}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="section-title">Extra Course Reuse Check</div>
+        <div class="pill-row">
+          <span class="pill">Extra core by count ${fmt(extraCore)}</span>
+          <span class="pill blue">Extra elective by count ${fmt(extraElective)}</span>
+          <span class="pill ${removable ? 'pass' : 'warn'}">Can remove one-by-one ${fmt(removable)}</span>
+          <span class="pill ${overlapCount ? 'warn' : 'pass'}">Cross-domain overlaps ${fmt(overlapCount)}</span>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Can remove?</th><th>Eligibility after removing this one course</th><th>Other domain match</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
+    }
+
     function renderCertifiedOverlap(row, courses) {
       const certifiedDomains = splitList(row.certifiedDomains).filter(domain => normalize(domain) !== '#n/a');
       if (!certifiedDomains.length) {
@@ -524,6 +580,7 @@
             ${row.finalComments ? `<span class="pill blue">${html(row.finalComments)}</span>` : ''}
             ${row.remarks ? `<span class="pill warn">${html(row.remarks)}</span>` : ''}
           </div>
+          ${renderExtraCourseReuseCheck(row, courses)}
           ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
           <div class="section-title">Domain Course List rows used for this check</div>
