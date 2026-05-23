@@ -297,6 +297,8 @@
         weeksDifference: clean(cols[21]),
         emailDomainId: clean(cols[22]),
         alreadyCertified: clean(cols[23]),
+        certifiedDomains: clean(cols[24]),
+        certifiedDisciplines: clean(cols[25]),
         checkingPerson: clean(cols[26]),
         finalComments: clean(cols[27]),
         remarks: clean(cols[28])
@@ -383,8 +385,55 @@
       return state.domainRows.filter(row => normalize(row.course) === normalize(domain));
     }
 
+    function splitList(value) {
+      return clean(value).split(/[\n,]+/).map(clean).filter(Boolean);
+    }
+
     function studentScoreMatches(email, domainId) {
       return scoreRowsForEmail(email).filter(row => scoreDomainIds(row).includes(clean(domainId)));
+    }
+
+    function renderCertifiedOverlap(row, courses) {
+      const certifiedDomains = splitList(row.certifiedDomains).filter(domain => normalize(domain) !== '#n/a');
+      if (!certifiedDomains.length) {
+        return `<div class="section-title">Already Got Domain Overlap Check</div>
+          <div class="empty">No already-got domain list found for this candidate.</div>`;
+      }
+
+      const certifiedById = new Map();
+      certifiedDomains.forEach(domain => {
+        domainListRowsForDomain(domain).forEach(item => {
+          const id = clean(item.id);
+          if (!id) return;
+          if (!certifiedById.has(id)) certifiedById.set(id, []);
+          certifiedById.get(id).push({ domain, type: item.type });
+        });
+      });
+
+      let overlapCount = 0;
+      const tableRows = courses.map(course => {
+        const matches = certifiedById.get(clean(course.nptelId)) || [];
+        if (matches.length) overlapCount += 1;
+        const matchText = matches.length
+          ? matches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
+          : '-';
+        return `<tr>
+          <td>${html(course.type)}</td>
+          <td>${html(course.nptelId)}</td>
+          <td>${html(course.courseName)}</td>
+          <td>${matches.length ? '<span class="pill warn">Overlap</span>' : '<span class="pill pass">Fresh</span>'}</td>
+          <td>${matchText}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="section-title">Already Got Domain Overlap Check</div>
+        <div class="pill-row">
+          <span class="pill blue">Already got domains ${fmt(certifiedDomains.length)}</span>
+          <span class="pill">Current courses checked ${fmt(courses.length)}</span>
+          <span class="pill ${overlapCount ? 'warn' : 'pass'}">Overlapping courses ${fmt(overlapCount)}</span>
+          <span class="pill">${html(certifiedDomains.join(' | '))}</span>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Current Type</th><th>NPTEL ID</th><th>Current Eligible Course</th><th>Overlap status</th><th>Already Got Domain Match</th></tr></thead><tbody>${tableRows || '<tr><td colspan="5" class="empty">No current course rows found for overlap check.</td></tr>'}</tbody></table></div>`;
     }
 
     function renderDomainIdComparison(row) {
@@ -471,10 +520,11 @@
             <span class="pill">Sheet weeks Q: ${fmt(row.totalWeeks)} / Req U: ${fmt(row.weeksRequired)}</span>
             <span class="pill">Sheet total marks P: ${fmt(row.totalMark)}</span>
             <span class="pill">Sheet avg S: ${dec(row.avg)}</span>
-            ${row.alreadyCertified && normalize(row.alreadyCertified) !== '#n/a' ? `<span class="pill warn">Already certified: ${html(row.alreadyCertified)}</span>` : ''}
+            ${splitList(row.certifiedDomains).length ? `<span class="pill warn">Already got domains: ${fmt(splitList(row.certifiedDomains).length)}</span>` : ''}
             ${row.finalComments ? `<span class="pill blue">${html(row.finalComments)}</span>` : ''}
             ${row.remarks ? `<span class="pill warn">${html(row.remarks)}</span>` : ''}
           </div>
+          ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
           <div class="section-title">Domain Course List rows used for this check</div>
           <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Max Mark</th><th>Weeks</th><th>Comments</th></tr></thead><tbody>${courseRows || '<tr><td colspan="6" class="empty">No course rows found for this email/domain.</td></tr>'}</tbody></table></div>
