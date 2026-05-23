@@ -403,8 +403,8 @@
 
     function renderExtraCourseReuseCheck(row, courses) {
       if (!courses.length) {
-        return `<div class="section-title">Extra Course Reuse Check</div>
-          <div class="empty">No course rows found to check extra/reusable courses.</div>`;
+        return `<div class="section-title">Extra Course Future Domain Check</div>
+          <div class="empty">No course rows found to check extra courses for another domain.</div>`;
       }
 
       const base = courseSummary(courses);
@@ -424,8 +424,8 @@
           ? overlaps.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
           : '-';
         const reason = stillEligible
-          ? `After remove: Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`
-          : `Needed now: remove gives Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`;
+          ? `Eligibility still ok without counting this course: Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`
+          : `Count this course for current eligibility: Core ${fmt(next.core)}, Elective ${fmt(next.elective)}, Weeks ${fmt(next.weeks)}, Avg ${dec(next.avg)}`;
 
         return `<tr>
           <td>${html(course.type)}</td>
@@ -433,20 +433,20 @@
           <td>${html(course.courseName)}</td>
           <td>${html(course.maxMark)}</td>
           <td>${html(course.week)}</td>
-          <td>${stillEligible ? '<span class="pill pass">Can save for next time</span>' : '<span class="pill warn">Keep for this domain</span>'}</td>
+          <td>${stillEligible ? '<span class="pill pass">Extra, can use later</span>' : '<span class="pill warn">Use for current domain</span>'}</td>
           <td>${html(reason)}</td>
           <td>${overlapText}</td>
         </tr>`;
       }).join('');
 
-      return `<div class="section-title">Extra Course Reuse Check</div>
+      return `<div class="section-title">Extra Course Future Domain Check</div>
         <div class="pill-row">
           <span class="pill">Extra core by count ${fmt(extraCore)}</span>
           <span class="pill blue">Extra elective by count ${fmt(extraElective)}</span>
-          <span class="pill ${removable ? 'pass' : 'warn'}">Can remove one-by-one ${fmt(removable)}</span>
-          <span class="pill ${overlapCount ? 'warn' : 'pass'}">Cross-domain overlaps ${fmt(overlapCount)}</span>
+          <span class="pill ${removable ? 'pass' : 'warn'}">Extra usable later ${fmt(removable)}</span>
+          <span class="pill ${overlapCount ? 'warn' : 'pass'}">Can fit other domains ${fmt(overlapCount)}</span>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Can remove?</th><th>Eligibility after removing this one course</th><th>Other domain match</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
+        <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Use status</th><th>Current eligibility check</th><th>Other domain where this course fits</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
     }
 
     function renderCertifiedOverlap(row, courses) {
