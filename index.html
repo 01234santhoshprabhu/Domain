@@ -453,7 +453,10 @@
         maxMark: num(cols[7]),
         week: num(cols[8]),
         courseName: clean(cols[9]),
-        comments: clean(cols[10])
+        comments: clean(cols[10]),
+        altNptelId: clean(cols[11]),
+        altMaxMark: num(cols[12]),
+        altWeek: num(cols[13])
       })).filter(row => row.email && row.domain && (row.nptelId || row.courseName));
 
       state.domainRows = domainRows.slice(1).map(cols => ({ course: clean(cols[0]), id: clean(cols[1]), type: clean(cols[2]) })).filter(row => row.course || row.id || row.type);
@@ -529,6 +532,70 @@
 
     function studentScoreMatches(email, domainId) {
       return scoreRowsForEmail(email).filter(row => scoreDomainIds(row).includes(clean(domainId)));
+    }
+
+    function coursePass(summary, row) {
+      return summary.core >= row.reqCore && summary.elective >= row.reqElective && summary.weeks >= row.weeksRequired && summary.avg >= 60;
+    }
+
+    function substitutionCandidates(row, courses) {
+      return courses.map(course => {
+        const commentMatch = clean(course.comments).match(/use\s+['"]?(\d+)['"]?\s+instead\s+of\s+['"]?(\d+)['"]?/i);
+        const altId = clean(course.altNptelId || (commentMatch ? commentMatch[1] : ''));
+        const oldId = clean(commentMatch ? commentMatch[2] : course.nptelId);
+        if (!altId || !oldId || oldId !== clean(course.nptelId)) return null;
+
+        const scoreMatch = scoreRowsForEmail(row.email).find(score => clean(score.nptelId) === altId || clean(score.courseId) === altId);
+        const replacement = {
+          ...course,
+          nptelId: altId,
+          maxMark: scoreMatch ? scoreMatch.finalScore : course.altMaxMark,
+          week: scoreMatch ? scoreMatch.week : course.altWeek,
+          courseName: `Alternate for ${course.courseName}`
+        };
+        const nextCourses = courses.map(item => item === course ? replacement : item);
+        const next = courseSummary(nextCourses);
+        return {
+          course,
+          altId,
+          oldId,
+          scoreMatch,
+          replacement,
+          summary: next,
+          eligible: coursePass(next, row)
+        };
+      }).filter(Boolean);
+    }
+
+    function renderSubstitutionCheck(row, courses) {
+      const candidates = substitutionCandidates(row, courses);
+      if (!candidates.length) {
+        return `<div class="section-title">Alternate Course Substitution Check</div>
+          <div class="empty">No alternate course instruction found for this candidate.</div>`;
+      }
+
+      const eligibleCount = candidates.filter(item => item.eligible).length;
+      const tableRows = candidates.map(item => {
+        const matchText = item.scoreMatch
+          ? `${html(item.scoreMatch.courseId)} | ${html(item.scoreMatch.nptelId)} | Score ${html(item.scoreMatch.finalScore)} | Week ${html(item.scoreMatch.week)}`
+          : 'Alternate course not found in Student Score sheet';
+        return `<tr>
+          <td>${html(item.oldId)}</td>
+          <td>${html(item.altId)}</td>
+          <td>${html(item.course.type)}</td>
+          <td>${html(item.course.courseName)}</td>
+          <td>${matchText}</td>
+          <td>Core ${fmt(item.summary.core)}, Elective ${fmt(item.summary.elective)}, Weeks ${fmt(item.summary.weeks)}, Avg ${dec(item.summary.avg)}</td>
+          <td>${item.eligible ? '<span class="pill pass">Eligible with substitution</span>' : '<span class="pill warn">Still not eligible</span>'}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="section-title">Alternate Course Substitution Check</div>
+        <div class="pill-row">
+          <span class="pill blue">Substitution options ${fmt(candidates.length)}</span>
+          <span class="pill ${eligibleCount ? 'pass' : 'warn'}">Eligible after substitution ${fmt(eligibleCount)}</span>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Current Course ID</th><th>Use Instead Course ID</th><th>Type</th><th>Current Course</th><th>Student Score Alternate Match</th><th>After substitution</th><th>Status</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
     }
 
     function otherDomainMatches(course, currentDomain) {
@@ -695,11 +762,12 @@
         const avgPass = s.avg >= 60;
         const sheetPass = row.coreOkSheet && row.electiveOkSheet && row.weeksOkSheet && row.avgOkSheet;
         const calculatedPass = corePass && electivePass && weeksPass && avgPass;
+        const substitutionPass = substitutionCandidates(row, courses).some(item => item.eligible);
         const courseRows = courses.map(course => `<tr><td>${html(course.type)}</td><td>${html(course.nptelId)}</td><td>${html(course.courseName)}</td><td>${html(course.maxMark)}</td><td>${html(course.week)}</td><td>${html(course.comments || '-')}</td></tr>`).join('');
         return `<section class="card">
           <div class="identity">
             <div><div class="email">${html(row.email)}</div><div class="mini">${html(row.discipline)} | ${html(row.domain)}</div></div>
-            <div class="pill-row"><span class="pill ${sheetPass ? 'pass' : 'warn'}">Sheet: ${sheetPass ? 'Eligible' : 'Not eligible'}</span><span class="pill ${calculatedPass ? 'pass' : 'warn'}">Calculated: ${calculatedPass ? 'Eligible' : 'Not eligible'}</span><span class="pill blue">Courses ${fmt(courses.length)}</span></div>
+            <div class="pill-row"><span class="pill ${sheetPass ? 'pass' : 'warn'}">Sheet: ${sheetPass ? 'Eligible' : 'Not eligible'}</span><span class="pill ${calculatedPass ? 'pass' : 'warn'}">Calculated: ${calculatedPass ? 'Eligible' : 'Not eligible'}</span>${substitutionPass ? '<span class="pill pass">Substitution: Eligible</span>' : ''}<span class="pill blue">Courses ${fmt(courses.length)}</span></div>
           </div>
           <div class="section-title">Checks you normally do</div>
           <div class="check-grid">
@@ -718,6 +786,7 @@
             ${row.finalComments ? `<span class="pill blue">${html(row.finalComments)}</span>` : ''}
             ${row.remarks ? `<span class="pill warn">${html(row.remarks)}</span>` : ''}
           </div>
+          ${renderSubstitutionCheck(row, courses)}
           ${renderExtraCourseReuseCheck(row, courses)}
           ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
