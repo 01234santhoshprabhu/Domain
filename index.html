@@ -532,6 +532,10 @@
       return clean(value).split(/[\n,]+/).map(clean).filter(Boolean);
     }
 
+    function certifiedDomainList(row) {
+      return splitList(row.certifiedDomains).filter(domain => !['#n/a', 'n/a', 'na', '-'].includes(normalize(domain)));
+    }
+
     function studentScoreMatches(email, domainId) {
       return scoreRowsForEmail(email).filter(row => scoreDomainIds(row).includes(clean(domainId)));
     }
@@ -680,10 +684,9 @@
     }
 
     function renderCertifiedOverlap(row, courses) {
-      const certifiedDomains = splitList(row.certifiedDomains).filter(domain => normalize(domain) !== '#n/a');
+      const certifiedDomains = certifiedDomainList(row);
       if (!certifiedDomains.length) {
-        return `<div class="section-title">Already Got Domain Overlap Check</div>
-          <div class="empty">No already-got domain list found for this candidate.</div>`;
+        return '';
       }
 
       const certifiedById = new Map();
@@ -807,7 +810,7 @@
             <span class="pill">Sheet weeks Q: ${fmt(row.totalWeeks)} / Req U: ${fmt(row.weeksRequired)}</span>
             <span class="pill">Sheet total marks P: ${fmt(row.totalMark)}</span>
             <span class="pill">Sheet avg S: ${dec(row.avg)}</span>
-            ${splitList(row.certifiedDomains).length ? `<span class="pill warn">Already got domains: ${fmt(splitList(row.certifiedDomains).length)}</span>` : ''}
+            ${certifiedDomainList(row).length ? `<span class="pill warn">Already got domains: ${fmt(certifiedDomainList(row).length)}</span>` : '<span class="pill pass">No already got domain</span>'}
             ${row.finalComments ? `<span class="pill blue">${html(row.finalComments)}</span>` : ''}
             ${row.remarks ? `<span class="pill warn">${html(row.remarks)}</span>` : ''}
           </div>
