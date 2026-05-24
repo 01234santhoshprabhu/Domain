@@ -224,6 +224,15 @@
     .status-card.pass { border-color: #86efac; background: linear-gradient(180deg, #f0fdf4, #fff); }
     .status-card.warn { border-color: #fbbf24; background: linear-gradient(180deg, #fffbeb, #fff); }
     .status-card.info { border-color: #7dd3fc; background: linear-gradient(180deg, #f0f9ff, #fff); }
+    .domain-status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+    .domain-status {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 12px;
+      background: #fff;
+      box-shadow: inset 0 1px rgba(255,255,255,.9), 0 6px 14px rgba(15,23,42,.05);
+    }
+    .domain-status strong { display: block; margin-bottom: 8px; color: #1f2937; }
     .result-list { padding: 18px; display: grid; gap: 18px; }
     .card {
       padding: 18px;
@@ -539,6 +548,36 @@
 
     function coursesFor(row) { return state.courseByEmailDomain.get(key(row.email, row.domain)) || []; }
 
+    function availableCoursesForRow(row) {
+      const domainRows = domainListRowsForDomain(row.domain);
+      const typeById = new Map(domainRows.map(item => [clean(item.id), clean(item.type)]));
+      const nameById = new Map(coursesFor(row).map(course => [clean(course.nptelId), course.courseName]));
+      const available = new Map();
+
+      scoreRowsForEmail(row.email).forEach(score => {
+        const id = typeById.has(clean(score.nptelId)) ? clean(score.nptelId) : typeById.has(clean(score.courseId)) ? clean(score.courseId) : '';
+        if (!id) return;
+        const item = {
+          type: typeById.get(id),
+          nptelId: id,
+          maxMark: score.finalScore,
+          week: score.week,
+          courseName: nameById.get(id) || score.courseId,
+          comments: 'Student Score match'
+        };
+        const existing = available.get(id);
+        if (!existing || item.week > existing.week || (item.week === existing.week && item.maxMark > existing.maxMark)) available.set(id, item);
+      });
+
+      coursesFor(row).forEach(course => {
+        const id = clean(course.nptelId);
+        if (!id || available.has(id)) return;
+        available.set(id, course);
+      });
+
+      return [...available.values()];
+    }
+
     function courseSummary(courses) {
       const core = courses.filter(course => normalize(course.type) === 'core').length;
       const elective = courses.filter(course => normalize(course.type) === 'elective').length;
@@ -665,7 +704,7 @@
       if (!currentPlan) return [];
       const usedForCurrentDomain = new Set(currentPlan.courses);
       const alreadyEligibleDomains = eligibleDomainsForEmail(row.email);
-      return coursesFor(row)
+      return availableCoursesForRow(row)
         .filter(course => !usedForCurrentDomain.has(course))
         .filter(course => otherDomainMatches(course, row.domain)
           .some(match => !alreadyEligibleDomains.has(normalize(match.domain))));
@@ -685,7 +724,7 @@
 
       const usedForCurrentDomain = new Set(currentPlan.courses);
       const alreadyEligibleDomains = eligibleDomainsForEmail(row.email);
-      const reusableCourses = courses.filter(course => !usedForCurrentDomain.has(course));
+      const reusableCourses = availableCoursesForRow(row).filter(course => !usedForCurrentDomain.has(course));
       const reusableRows = reusableCourses.map(course => {
         const futureMatches = otherDomainMatches(course, row.domain)
           .filter(match => !alreadyEligibleDomains.has(normalize(match.domain)));
@@ -718,7 +757,7 @@
     }
 
     function validCoursePlans(row) {
-      const courses = coursesFor(row);
+      const courses = availableCoursesForRow(row);
       const n = courses.length;
       if (!n || n > 14) return [];
       const plans = [];
@@ -869,41 +908,58 @@
 
     function renderCandidateStatus(rows) {
       const email = rows[0]?.email || '';
-      const allCourses = rows.flatMap(row => coursesFor(row));
+      const allCourses = rows.flatMap(row => availableCoursesForRow(row));
       const uniqueCourseIds = new Set(allCourses.map(course => clean(course.nptelId)).filter(Boolean));
-      const eligibleRows = rows.filter(row => coursePass(courseSummary(coursesFor(row)), row));
+      const eligibleRows = rows.filter(row => validCoursePlans(row).length > 0);
       const plan = nonOverlapPlan(rows);
       const futureCourseIds = new Set(rows.flatMap(row => futureReusableCourses(row)).map(course => clean(course.nptelId)).filter(Boolean));
       const alreadyGot = new Set(rows.flatMap(row => certifiedDomainList(row)).map(normalize).filter(Boolean));
+      const cleanSplitPossible = eligibleRows.length > 0 && plan.best.chosen.length === eligibleRows.length;
       const idUse = new Map();
 
-      eligibleRows.forEach(row => {
-        const currentPlan = validCoursePlans(row)[0];
-        if (!currentPlan) return;
-        currentPlan.ids.forEach(id => idUse.set(id, (idUse.get(id) || 0) + 1));
-      });
+      const chosenPlans = plan.best.chosen.length ? plan.best.chosen : eligibleRows.map(row => validCoursePlans(row)[0]).filter(Boolean);
+      chosenPlans.forEach(item => item.ids.forEach(id => idUse.set(id, (idUse.get(id) || 0) + 1)));
 
       const overlapIds = [...idUse].filter(([, count]) => count > 1).map(([id]) => id);
       const finalStatus = !eligibleRows.length
         ? 'Not eligible'
-        : plan.best.chosen.length === eligibleRows.length
-          ? 'Ready without overlap'
+        : cleanSplitPossible
+          ? 'Clean split ready'
           : 'Needs overlap review';
-      const statusClass = !eligibleRows.length ? 'warn' : plan.best.chosen.length === eligibleRows.length ? 'pass' : 'warn';
+      const statusClass = !eligibleRows.length ? 'warn' : cleanSplitPossible ? 'pass' : 'warn';
+      const domainCards = rows.map(row => {
+        const bestPlan = validCoursePlans(row)[0];
+        const s = bestPlan ? bestPlan.summary : courseSummary(coursesFor(row));
+        const coreOk = s.core >= row.reqCore;
+        const electiveOk = s.elective >= row.reqElective;
+        const weeksOk = s.weeks >= row.weeksRequired;
+        const avgOk = s.avg >= 60;
+        const ok = coreOk && electiveOk && weeksOk && avgOk;
+        return `<div class="domain-status">
+          <strong>${html(row.domain)} <span class="pill ${ok ? 'pass' : 'warn'}">${ok ? 'Eligible' : 'Not eligible'}</span></strong>
+          <div class="pill-row">
+            <span class="pill ${coreOk ? 'pass' : 'warn'}">Core ${fmt(s.core)} / ${fmt(row.reqCore)}</span>
+            <span class="pill ${electiveOk ? 'pass' : 'warn'}">Elective ${fmt(s.elective)} / ${fmt(row.reqElective)}</span>
+            <span class="pill ${weeksOk ? 'pass' : 'warn'}">Weeks ${fmt(s.weeks)} / ${fmt(row.weeksRequired)}</span>
+            <span class="pill ${avgOk ? 'pass' : 'warn'}">Avg ${dec(s.avg)} / 60</span>
+          </div>
+        </div>`;
+      }).join('');
 
       return `<section class="panel candidate-overview">
         <div>
           <h3>${html(email)} status</h3>
-          <div class="mini">Clean summary from eligible list, domain course list, and student score checks.</div>
+          <div class="mini">Manual-style check: core, elective, weeks, average, reusable course IDs, and no-overlap split.</div>
         </div>
         <div class="status-grid">
           <div class="status-card info"><strong>${fmt(uniqueCourseIds.size)}</strong><span>Courses taken</span></div>
-          <div class="status-card ${eligibleRows.length ? 'pass' : 'warn'}"><strong>${fmt(eligibleRows.length)}</strong><span>Domains eligible</span></div>
+          <div class="status-card ${eligibleRows.length ? 'pass' : 'warn'}"><strong>${fmt(eligibleRows.length)} / ${fmt(rows.length)}</strong><span>Eligible domains</span></div>
+          <div class="status-card ${cleanSplitPossible ? 'pass' : 'warn'}"><strong>${fmt(plan.best.chosen.length)} / ${fmt(eligibleRows.length)}</strong><span>No-overlap possible</span></div>
+          <div class="status-card ${overlapIds.length ? 'warn' : 'pass'}"><strong>${fmt(overlapIds.length)}</strong><span>Overlap IDs in split</span></div>
           <div class="status-card ${futureCourseIds.size ? 'pass' : 'info'}"><strong>${fmt(futureCourseIds.size)}</strong><span>Other can use</span></div>
-          <div class="status-card ${plan.best.chosen.length === eligibleRows.length ? 'pass' : 'warn'}"><strong>${fmt(plan.best.chosen.length)} / ${fmt(eligibleRows.length)}</strong><span>Non-overlap eligible</span></div>
-          <div class="status-card ${overlapIds.length ? 'warn' : 'pass'}"><strong>${fmt(overlapIds.length)}</strong><span>Overlap course IDs</span></div>
           <div class="status-card ${statusClass}"><strong>${html(finalStatus)}</strong><span>Overall status</span></div>
         </div>
+        <div class="domain-status-grid">${domainCards}</div>
         <div class="pill-row">
           <span class="pill">Search results ${fmt(rows.length)}</span>
           <span class="pill ${alreadyGot.size ? 'warn' : 'pass'}">Already got domains ${fmt(alreadyGot.size)}</span>
