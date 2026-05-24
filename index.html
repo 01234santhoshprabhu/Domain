@@ -598,9 +598,16 @@
     function otherDomainMatches(course, currentDomain) {
       const courseId = clean(course.nptelId);
       if (!courseId) return [];
+      const seen = new Set();
       return state.domainRows
         .filter(item => clean(item.id) === courseId && normalize(item.course) !== normalize(currentDomain))
-        .map(item => ({ domain: item.course, type: item.type }));
+        .map(item => ({ domain: item.course, type: item.type }))
+        .filter(item => {
+          const k = `${normalize(item.domain)}|${normalize(item.type)}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
     }
 
     function renderExtraCourseReuseCheck(row, courses) {
@@ -649,6 +656,27 @@
           <span class="pill ${overlapCount ? 'warn' : 'pass'}">Can fit other domains ${fmt(overlapCount)}</span>
         </div>
         <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain match</th></tr></thead><tbody>${reusableRows.join('') || '<tr><td colspan="7" class="empty">No extra usable course found.</td></tr>'}</tbody></table></div>`;
+    }
+
+    function renderOtherDomainMatches(row, courses) {
+      const rows = courses.map(course => {
+        const matches = otherDomainMatches(course, row.domain);
+        if (!matches.length) return '';
+        return `<tr>
+          <td>${html(course.type)}</td>
+          <td>${html(course.nptelId)}</td>
+          <td>${html(course.courseName)}</td>
+          <td>${matches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')}</td>
+        </tr>`;
+      }).filter(Boolean);
+
+      if (!rows.length) return '';
+
+      return `<div class="section-title">Other Domain Matches</div>
+        <div class="pill-row">
+          <span class="pill warn">Courses also found in other domains ${fmt(rows.length)}</span>
+        </div>
+        <div class="table-wrap compact"><table><thead><tr><th>Current Type</th><th>NPTEL ID</th><th>Course Name</th><th>Also available in domain</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
     }
 
     function renderCertifiedOverlap(row, courses) {
@@ -785,6 +813,7 @@
           </div>
           ${renderSubstitutionCheck(row, courses)}
           ${renderExtraCourseReuseCheck(row, courses)}
+          ${renderOtherDomainMatches(row, courses)}
           ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
           <div class="section-title">Domain Course List rows used for this check</div>
