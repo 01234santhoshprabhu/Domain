@@ -662,66 +662,6 @@
         <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain match</th></tr></thead><tbody>${reusableRows.join('') || '<tr><td colspan="7" class="empty">No extra usable course found.</td></tr>'}</tbody></table></div>`;
     }
 
-    function renderOtherDomainMatches(row, courses) {
-      const rows = courses.map(course => {
-        const matches = otherDomainMatches(course, row.domain);
-        if (!matches.length) return '';
-        return `<tr>
-          <td>${html(course.type)}</td>
-          <td>${html(course.nptelId)}</td>
-          <td>${html(course.courseName)}</td>
-          <td>${matches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')}</td>
-        </tr>`;
-      }).filter(Boolean);
-
-      if (!rows.length) return '';
-
-      return `<div class="section-title">Other Domain Matches</div>
-        <div class="pill-row">
-          <span class="pill warn">Courses also found in other domains ${fmt(rows.length)}</span>
-        </div>
-        <div class="table-wrap compact"><table><thead><tr><th>Current Type</th><th>NPTEL ID</th><th>Course Name</th><th>Also available in domain</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
-    }
-
-    function renderCandidateSharedCourses(row, allRows) {
-      const sameEmailRows = allRows.filter(item => normalize(item.email) === normalize(row.email));
-      if (sameEmailRows.length < 2) return '';
-
-      const byId = new Map();
-      sameEmailRows.forEach(domainRow => {
-        coursesFor(domainRow).forEach(course => {
-          const id = clean(course.nptelId);
-          if (!id) return;
-          if (!byId.has(id)) byId.set(id, { courseName: course.courseName, uses: [] });
-          byId.get(id).uses.push({ domain: domainRow.domain, type: course.type });
-        });
-      });
-
-      const shared = [...byId.entries()].map(([id, info]) => {
-        const seen = new Set();
-        const uses = info.uses.filter(use => {
-          const k = `${normalize(use.domain)}|${normalize(use.type)}`;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-        const domainCount = new Set(uses.map(use => normalize(use.domain))).size;
-        return { id, courseName: info.courseName, uses, domainCount };
-      }).filter(item => item.domainCount > 1);
-
-      if (!shared.length) return '';
-
-      const tableRows = shared.map(item => `<tr>
-        <td>${html(item.id)}</td>
-        <td>${html(item.courseName)}</td>
-        <td><span class="pill warn">Used in ${fmt(item.domainCount)} eligible domains</span></td>
-        <td>${item.uses.map(use => `${html(use.domain)} (${html(use.type || '-')})`).join('<br>')}</td>
-      </tr>`).join('');
-
-      return `<div class="section-title">Shared Across This Candidate's Eligible Domains</div>
-        <div class="table-wrap compact"><table><thead><tr><th>NPTEL ID</th><th>Course Name</th><th>Shared Count</th><th>Eligible Domain Usage</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
-    }
-
     function validCoursePlans(row) {
       const courses = coursesFor(row);
       const n = courses.length;
