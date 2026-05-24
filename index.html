@@ -431,7 +431,7 @@
       return rows;
     }
 
-    function clean(value) { return String(value || '').trim(); }
+    function clean(value) { return String(value || '').trim().replace(/^(\d+)\.0$/, '$1'); }
     function normalize(value) { return clean(value).toLowerCase(); }
     function num(value) { const n = Number(clean(value)); return Number.isFinite(n) ? n : 0; }
     function yes(value) { return ['true', 'yes', '1'].includes(normalize(value)); }
@@ -779,7 +779,7 @@
     }
 
     function nonOverlapPlan(rows) {
-      const eligibleRows = rows.filter(row => coursePass(courseSummary(coursesFor(row)), row));
+      const eligibleRows = rows.filter(row => validCoursePlans(row).length > 0);
       const planGroups = eligibleRows.map(row => validCoursePlans(row));
       let best = { chosen: [], ids: new Set(), courseCount: Infinity };
 
@@ -1003,12 +1003,18 @@
         const avgPass = s.avg >= 60;
         const sheetPass = row.coreOkSheet && row.electiveOkSheet && row.weeksOkSheet && row.avgOkSheet;
         const calculatedPass = corePass && electivePass && weeksPass && avgPass;
+        const bestPlan = validCoursePlans(row)[0];
+        const exceptionPass = !calculatedPass && !!bestPlan;
         const substitutionPass = substitutionCandidates(row, courses).some(item => item.eligible);
+        const statusLabel = calculatedPass ? 'Eligible' : exceptionPass ? 'Eligible with additional course' : 'Not eligible';
         const courseRows = courses.map(course => `<tr><td>${html(course.type)}</td><td>${html(course.nptelId)}</td><td>${html(course.courseName)}</td><td>${html(course.maxMark)}</td><td>${html(course.week)}</td><td>${html(course.comments || '-')}</td></tr>`).join('');
+        const extraIds = bestPlan
+          ? [...bestPlan.ids].filter(id => !courses.some(course => clean(course.nptelId) === clean(id)))
+          : [];
         return `<section class="card">
           <div class="identity">
             <div><div class="email">${html(row.email)}</div><div class="mini">${html(row.discipline)} | ${html(row.domain)}</div></div>
-            <div class="pill-row"><span class="pill ${sheetPass ? 'pass' : 'warn'}">Sheet: ${sheetPass ? 'Eligible' : 'Not eligible'}</span><span class="pill ${calculatedPass ? 'pass' : 'warn'}">Calculated: ${calculatedPass ? 'Eligible' : 'Not eligible'}</span>${substitutionPass ? '<span class="pill pass">Substitution: Eligible</span>' : ''}<span class="pill blue">Courses ${fmt(courses.length)}</span></div>
+            <div class="pill-row"><span class="pill ${sheetPass ? 'pass' : 'warn'}">Sheet: ${sheetPass ? 'Eligible' : 'Not eligible'}</span><span class="pill ${calculatedPass || exceptionPass ? 'pass' : 'warn'}">Calculated: ${statusLabel}</span>${extraIds.length ? `<span class="pill pass">Add ${html(extraIds.join(', '))}</span>` : ''}${substitutionPass ? '<span class="pill pass">Substitution: Eligible</span>' : ''}<span class="pill blue">Courses ${fmt(courses.length)}</span></div>
           </div>
           <div class="section-title">Checks you normally do</div>
           <div class="check-grid">
