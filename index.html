@@ -203,6 +203,66 @@
     }
     button:hover { background: linear-gradient(180deg, #367fa9, #2f6f94); }
     .status { color: #475569; font-size: 13px; min-height: 18px; font-weight: 700; }
+    .hero-board {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.15fr) minmax(280px, .85fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .executive-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,.35);
+      border-radius: 10px;
+      padding: 20px;
+      color: #fff;
+      background: linear-gradient(135deg, #0f172a 0%, #164e63 52%, #2563eb 100%);
+      box-shadow: 0 20px 42px rgba(15,23,42,.2), inset 0 1px rgba(255,255,255,.18);
+    }
+    .executive-card::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      right: -80px;
+      top: -90px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.12);
+    }
+    .executive-card h2 { margin: 0; font-size: 24px; font-weight: 900; position: relative; z-index: 1; }
+    .executive-card p { margin: 8px 0 16px; color: #dbeafe; font-weight: 650; position: relative; z-index: 1; }
+    .hero-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; position: relative; z-index: 1; }
+    .hero-metric {
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255,255,255,.1);
+      box-shadow: inset 0 1px rgba(255,255,255,.16);
+    }
+    .hero-metric strong { display: block; font-size: 22px; line-height: 1; }
+    .hero-metric span { display: block; margin-top: 6px; font-size: 11px; text-transform: uppercase; font-weight: 850; color: #c7d2fe; }
+    .insight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .insight-card {
+      background: rgba(255,255,255,.98);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      box-shadow: 0 14px 26px rgba(15,23,42,.09), inset 0 1px rgba(255,255,255,.85);
+      display: grid;
+      gap: 9px;
+      min-height: 132px;
+    }
+    .insight-card h3 { margin: 0; font-size: 15px; font-weight: 900; color: #1f2937; }
+    .insight-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .view-btn {
+      justify-self: start;
+      min-height: 0;
+      padding: 8px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: linear-gradient(180deg, #0ea5e9, #2563eb);
+      box-shadow: 0 8px 16px rgba(37,99,235,.18), inset 0 1px rgba(255,255,255,.28);
+    }
     .result-list { padding: 18px; display: grid; gap: 18px; }
     .card {
       padding: 18px;
@@ -288,10 +348,12 @@
       .user-panel { padding: 12px 16px; }
       main { width: min(100% - 20px, 1540px); }
       .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .hero-board { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       header { align-items: flex-start; flex-direction: column; gap: 8px; padding: 14px 16px; }
       .stats, .search-row { grid-template-columns: 1fr; }
+      .hero-metrics, .insight-grid { grid-template-columns: 1fr; }
       .email { font-size: 17px; }
       .top-chip { white-space: normal; }
     }
@@ -306,10 +368,10 @@
         <div><strong>Eligibility Console</strong><span>Workbook data connected</span></div>
       </div>
       <div class="nav-label">Main</div>
-      <div class="nav-item active"><span class="nav-icon">▣</span><span>Dashboard</span></div>
-      <div class="nav-item"><span class="nav-icon">✓</span><span>Eligibility Check</span></div>
-      <div class="nav-item"><span class="nav-icon">↔</span><span>Overlap Review</span></div>
-      <div class="nav-item"><span class="nav-icon">□</span><span>Course Evidence</span></div>
+      <div class="nav-item active" data-go="overview"><span class="nav-icon">▣</span><span>Overview</span></div>
+      <div class="nav-item" data-go="candidate-check"><span class="nav-icon">✓</span><span>Candidate Check</span></div>
+      <div class="nav-item" data-go="result-panel"><span class="nav-icon">↔</span><span>Eligibility Details</span></div>
+      <div class="nav-item" data-go="result-panel"><span class="nav-icon">□</span><span>Course Evidence</span></div>
     </aside>
     <div class="content">
       <header>
@@ -320,6 +382,39 @@
         <div class="top-chip">AdminLTE Style • Live GitHub Dashboard</div>
       </header>
       <main>
+        <section id="overview" class="hero-board" aria-label="Overall dashboard view">
+          <div class="executive-card">
+            <h2>Domain Verification Command Center</h2>
+            <p>One place to review eligibility, substitutions, overlap risk, reusable courses, and course evidence.</p>
+            <div class="hero-metrics">
+              <div class="hero-metric"><strong id="overviewEligible">0</strong><span>Eligibility rows</span></div>
+              <div class="hero-metric"><strong id="overviewCandidates">0</strong><span>Candidates</span></div>
+              <div class="hero-metric"><strong id="overviewDomains">0</strong><span>Domain IDs</span></div>
+            </div>
+          </div>
+          <div class="insight-grid">
+            <div class="insight-card">
+              <h3>Candidate Drilldown</h3>
+              <p>Search an email and open the complete domain eligibility evidence.</p>
+              <button class="view-btn" type="button" data-go="candidate-check">View more</button>
+            </div>
+            <div class="insight-card">
+              <h3>Non-overlap Planning</h3>
+              <p>For multi-domain candidates, see how many domains can be certified without reusing course IDs.</p>
+              <button class="view-btn" type="button" data-go="result-panel">View more</button>
+            </div>
+            <div class="insight-card">
+              <h3>Substitution Review</h3>
+              <p>Comments like “use this instead” are checked against Student Score and recalculated.</p>
+              <button class="view-btn" type="button" data-go="result-panel">View more</button>
+            </div>
+            <div class="insight-card">
+              <h3>Course Evidence</h3>
+              <p>See the exact core, elective, marks, weeks, and source rows used for the decision.</p>
+              <button class="view-btn" type="button" data-go="result-panel">View more</button>
+            </div>
+          </div>
+        </section>
         <section class="stats" aria-label="Summary">
           <div class="stat"><div id="eligibleCount" class="value">0</div><div class="label">Eligibility rows</div></div>
           <div class="stat"><div id="candidateCount" class="value">0</div><div class="label">Candidate emails</div></div>
@@ -327,7 +422,7 @@
           <div class="stat"><div id="domainCount" class="value">0</div><div class="label">Overall domain list rows</div></div>
         </section>
 
-        <article class="panel">
+        <article id="candidate-check" class="panel">
           <div class="panel-head">
             <h2>Search Candidate</h2>
             <div class="search-row">
@@ -338,7 +433,7 @@
           </div>
         </article>
 
-        <article class="panel">
+        <article id="result-panel" class="panel">
           <div class="panel-head">
             <h2>Eligibility Check Details</h2>
             <div id="resultStatus" class="status">Enter an email ID to check candidate eligibility.</div>
@@ -360,6 +455,9 @@
 
     const state = { eligible: [], courses: [], domainRows: [], scoreRows: [], courseByEmailDomain: new Map(), scoreByEmail: new Map() };
     const els = {
+      overviewEligible: document.getElementById('overviewEligible'),
+      overviewCandidates: document.getElementById('overviewCandidates'),
+      overviewDomains: document.getElementById('overviewDomains'),
       eligibleCount: document.getElementById('eligibleCount'),
       candidateCount: document.getElementById('candidateCount'),
       courseCount: document.getElementById('courseCount'),
@@ -494,10 +592,27 @@
       });
 
       els.eligibleCount.textContent = fmt(state.eligible.length);
-      els.candidateCount.textContent = fmt(new Set(state.eligible.map(row => normalize(row.email))).size);
+      const candidateTotal = new Set(state.eligible.map(row => normalize(row.email))).size;
+      els.candidateCount.textContent = fmt(candidateTotal);
       els.courseCount.textContent = fmt(state.courses.length);
       els.domainCount.textContent = fmt(state.domainRows.length);
+      els.overviewEligible.textContent = fmt(state.eligible.length);
+      els.overviewCandidates.textContent = fmt(candidateTotal);
+      els.overviewDomains.textContent = fmt(state.domainRows.length);
       els.loadStatus.textContent = 'Workbook data loaded. Enter an email ID to check.';
+    }
+
+    function goToSection(id, clickedNav) {
+      const target = document.getElementById(id);
+      if (!target) return;
+      if (clickedNav) {
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item === clickedNav));
+      } else {
+        const nav = document.querySelector(`.nav-item[data-go="${id}"]`);
+        if (nav) document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item === nav));
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (id === 'candidate-check') window.setTimeout(() => els.emailSearch.focus(), 350);
     }
 
     function coursesFor(row) { return state.courseByEmailDomain.get(key(row.email, row.domain)) || []; }
@@ -880,6 +995,8 @@
       }).join('');
     }
 
+    document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => goToSection(item.dataset.go, item)));
+    document.querySelectorAll('.view-btn').forEach(button => button.addEventListener('click', () => goToSection(button.dataset.go)));
     els.emailSearch.addEventListener('input', render);
     els.clearSearch.addEventListener('click', () => { els.emailSearch.value = ''; render(); els.emailSearch.focus(); });
     loadData();
