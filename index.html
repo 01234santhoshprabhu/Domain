@@ -722,6 +722,83 @@
         <div class="table-wrap compact"><table><thead><tr><th>NPTEL ID</th><th>Course Name</th><th>Shared Count</th><th>Eligible Domain Usage</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
     }
 
+    function validCoursePlans(row) {
+      const courses = coursesFor(row);
+      const n = courses.length;
+      if (!n || n > 14) return [];
+      const plans = [];
+      const limit = 1 << n;
+      for (let mask = 1; mask < limit; mask += 1) {
+        const picked = courses.filter((_, index) => mask & (1 << index));
+        const summary = courseSummary(picked);
+        if (!coursePass(summary, row)) continue;
+        plans.push({
+          row,
+          courses: picked,
+          summary,
+          ids: new Set(picked.map(course => clean(course.nptelId)).filter(Boolean))
+        });
+      }
+      return plans
+        .sort((a, b) => a.courses.length - b.courses.length || a.summary.weeks - b.summary.weeks || b.summary.avg - a.summary.avg)
+        .slice(0, 120);
+    }
+
+    function nonOverlapPlan(rows) {
+      const eligibleRows = rows.filter(row => coursePass(courseSummary(coursesFor(row)), row));
+      const planGroups = eligibleRows.map(row => validCoursePlans(row));
+      let best = { chosen: [], ids: new Set(), courseCount: Infinity };
+
+      function walk(index, chosen, usedIds) {
+        if (index >= eligibleRows.length) {
+          const courseCount = chosen.reduce((sum, item) => sum + item.courses.length, 0);
+          if (chosen.length > best.chosen.length || (chosen.length === best.chosen.length && courseCount < best.courseCount)) {
+            best = { chosen: [...chosen], ids: new Set(usedIds), courseCount };
+          }
+          return;
+        }
+        walk(index + 1, chosen, usedIds);
+        for (const plan of planGroups[index]) {
+          if ([...plan.ids].some(id => usedIds.has(id))) continue;
+          const nextIds = new Set(usedIds);
+          plan.ids.forEach(id => nextIds.add(id));
+          walk(index + 1, [...chosen, plan], nextIds);
+        }
+      }
+
+      walk(0, [], new Set());
+      return { paperEligible: eligibleRows.length, best };
+    }
+
+    function renderNonOverlapEligibility(rows) {
+      if (rows.length < 2) return '';
+      const result = nonOverlapPlan(rows);
+      if (!result.paperEligible) return '';
+      const selectedDomains = new Set(result.best.chosen.map(plan => normalize(plan.row.domain)));
+      const tableRows = result.best.chosen.map(plan => {
+        const ids = plan.courses.map(course => clean(course.nptelId)).filter(Boolean).join(', ');
+        return `<tr>
+          <td>${html(plan.row.domain)}</td>
+          <td><span class="pill pass">Eligible without overlap</span></td>
+          <td>${html(ids)}</td>
+          <td>Core ${fmt(plan.summary.core)}, Elective ${fmt(plan.summary.elective)}, Weeks ${fmt(plan.summary.weeks)}, Avg ${dec(plan.summary.avg)}</td>
+        </tr>`;
+      }).join('');
+      const blocked = rows
+        .filter(row => coursePass(courseSummary(coursesFor(row)), row) && !selectedDomains.has(normalize(row.domain)))
+        .map(row => row.domain);
+
+      return `<section class="card">
+        <div class="section-title">Non-overlap Eligibility Summary</div>
+        <div class="pill-row">
+          <span class="pill blue">Eligible on paper ${fmt(result.paperEligible)}</span>
+          <span class="pill ${result.best.chosen.length === result.paperEligible ? 'pass' : 'warn'}">Eligible without course overlap ${fmt(result.best.chosen.length)}</span>
+          ${blocked.length ? `<span class="pill warn">Blocked by shared courses: ${html(blocked.join(' | '))}</span>` : '<span class="pill pass">All selected domains have separate course sets</span>'}
+        </div>
+        <div class="table-wrap compact"><table><thead><tr><th>Domain</th><th>Status</th><th>Courses used without overlap</th><th>Requirement check</th></tr></thead><tbody>${tableRows || '<tr><td colspan="4" class="empty">No non-overlap eligible plan found.</td></tr>'}</tbody></table></div>
+      </section>`;
+    }
+
     function renderCertifiedOverlap(row, courses) {
       const certifiedDomains = certifiedDomainList(row);
       if (!certifiedDomains.length) {
@@ -820,7 +897,7 @@
         return;
       }
 
-      els.resultList.innerHTML = rows.map(row => {
+      els.resultList.innerHTML = renderNonOverlapEligibility(rows) + rows.map(row => {
         const courses = coursesFor(row);
         const s = courseSummary(courses);
         const corePass = s.core >= row.reqCore;
@@ -855,8 +932,6 @@
           </div>
           ${renderSubstitutionCheck(row, courses)}
           ${renderExtraCourseReuseCheck(row, courses)}
-          ${renderCandidateSharedCourses(row, rows)}
-          ${renderOtherDomainMatches(row, courses)}
           ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
           <div class="section-title">Domain Course List rows used for this check</div>
