@@ -717,16 +717,25 @@
     function otherDomainMatches(course, currentDomain) {
       const courseId = clean(course.nptelId);
       if (!courseId) return [];
-      const seen = new Set();
-      return state.domainRows
+      const grouped = new Map();
+      state.domainRows
         .filter(item => clean(item.id) === courseId && normalize(item.course) !== normalize(currentDomain))
-        .map(item => ({ domain: item.course, type: item.type }))
-        .filter(item => {
-          const k = `${normalize(item.domain)}|${normalize(item.type)}`;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
+        .forEach(item => {
+          const k = normalize(item.course);
+          if (!grouped.has(k)) grouped.set(k, { domain: item.course, types: new Set() });
+          if (clean(item.type)) grouped.get(k).types.add(clean(item.type));
         });
+      return [...grouped.values()].map(item => ({
+        domain: item.domain,
+        type: [...item.types].join(', ')
+      }));
+    }
+
+    function eligibleDomainsForEmail(email) {
+      return new Set(state.eligible
+        .filter(item => normalize(item.email) === normalize(email))
+        .filter(item => coursePass(courseSummary(coursesFor(item)), item))
+        .map(item => normalize(item.domain)));
     }
 
     function renderExtraCourseReuseCheck(row, courses) {
@@ -738,17 +747,18 @@
       const base = courseSummary(courses);
       const extraCore = Math.max(0, base.core - row.reqCore);
       const extraElective = Math.max(0, base.elective - row.reqElective);
-      const reusableRows = [];
-      courses.forEach(course => {
-        const remaining = courses.filter(item => item !== course);
-        const next = courseSummary(remaining);
-        const stillEligible = next.core >= row.reqCore && next.elective >= row.reqElective && next.weeks >= row.weeksRequired && next.avg >= 60;
-        const overlaps = otherDomainMatches(course, row.domain);
-        if (!stillEligible) return;
-        const overlapText = overlaps.length
-          ? overlaps.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
-          : '-';
-        reusableRows.push(`<tr>
+      const currentPlan = validCoursePlans(row)[0];
+      if (!currentPlan) return '';
+
+      const usedForCurrentDomain = new Set(currentPlan.courses);
+      const reusableCourses = courses.filter(course => !usedForCurrentDomain.has(course));
+      const alreadyEligibleDomains = eligibleDomainsForEmail(row.email);
+      const reusableRows = reusableCourses.map(course => {
+        const futureMatches = otherDomainMatches(course, row.domain)
+          .filter(match => !alreadyEligibleDomains.has(normalize(match.domain)));
+        if (!futureMatches.length) return '';
+        const overlapText = futureMatches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>');
+        return `<tr>
           <td>${html(course.type)}</td>
           <td>${html(course.nptelId)}</td>
           <td>${html(course.courseName)}</td>
@@ -756,14 +766,11 @@
           <td>${html(course.week)}</td>
           <td><span class="pill pass">Extra, can use later</span></td>
           <td>${overlapText}</td>
-        </tr>`);
-      });
+        </tr>`;
+      }).filter(Boolean);
 
-      const reusableCount = courses.filter(course => {
-        const remaining = courses.filter(item => item !== course);
-        return coursePass(courseSummary(remaining), row);
-      }).length;
-      const overlapCount = courses.filter(course => otherDomainMatches(course, row.domain).length).length;
+      const reusableCount = reusableCourses.length;
+      const overlapCount = reusableRows.length;
 
       if (!reusableRows.length) return '';
 
@@ -771,7 +778,7 @@
         <div class="pill-row">
           <span class="pill">Extra core by count ${fmt(extraCore)}</span>
           <span class="pill blue">Extra elective by count ${fmt(extraElective)}</span>
-          <span class="pill ${reusableCount ? 'pass' : 'warn'}">Extra usable later ${fmt(reusableCount)}</span>
+          <span class="pill ${reusableCount ? 'pass' : 'warn'}">Unused after current domain ${fmt(reusableCount)}</span>
           <span class="pill ${overlapCount ? 'warn' : 'pass'}">Can fit other domains ${fmt(overlapCount)}</span>
         </div>
         <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain match</th></tr></thead><tbody>${reusableRows.join('') || '<tr><td colspan="7" class="empty">No extra usable course found.</td></tr>'}</tbody></table></div>`;
