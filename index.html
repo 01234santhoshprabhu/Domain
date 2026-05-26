@@ -1038,7 +1038,13 @@
       if (!courses.length) return null;
       const ordered = courses
         .map((course, index) => ({ course, index }))
-        .sort((a, b) => b.course.maxMark - a.course.maxMark || b.course.week - a.course.week);
+        .sort((a, b) => {
+          const aReusable = otherDomainMatches(a.course, row.domain).length ? 1 : 0;
+          const bReusable = otherDomainMatches(b.course, row.domain).length ? 1 : 0;
+          return aReusable - bReusable
+            || b.course.maxMark - a.course.maxMark
+            || b.course.week - a.course.week;
+        });
       let best = null;
       let visits = 0;
 
