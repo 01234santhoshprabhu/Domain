@@ -961,7 +961,7 @@
             <span class="pill ${extraCourses.length ? 'pass' : 'blue'}">Extra same-domain courses ${fmt(extraCourses.length)}</span>
           </div>
           <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Exception band</th></tr></thead><tbody>${courseRows || '<tr><td colspan="5" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
-          ${renderExceptionExtraCourses(extraCourses)}
+          ${renderExceptionExtraCourses(row, extraCourses)}
         </section>`;
       }).join('');
     }
@@ -1006,24 +1006,37 @@
       return best;
     }
 
-    function renderExceptionExtraCourses(courses) {
+    function renderExceptionExtraCourses(row, courses) {
       if (!courses.length) {
-        return `<div class="section-title">Extra Courses Taken in Same Domain</div>
+        return `<div class="section-title">Extra / Reusable Courses</div>
           <div class="pill-row"><span class="pill blue">No extra same-domain courses after eligibility set</span></div>`;
       }
-      const rows = courses.map(course => `<tr>
-        <td>${html(course.type)}</td>
-        <td>${html(course.nptelId)}</td>
-        <td>${html(course.maxMark)}</td>
-        <td>${html(course.week)}</td>
-        <td><span class="pill pass">Extra in same domain</span></td>
-      </tr>`).join('');
-      return `<div class="section-title">Extra Courses Taken in Same Domain</div>
+      let reusableCount = 0;
+      const rows = courses.map(course => {
+        const matches = otherDomainMatches(course, row.domain);
+        if (matches.length) reusableCount += 1;
+        const matchText = matches.length
+          ? matches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
+          : '-';
+        const status = matches.length
+          ? '<span class="pill warn">Extra, also in other domain</span>'
+          : '<span class="pill pass">Extra only in this domain</span>';
+        return `<tr>
+          <td>${html(course.type)}</td>
+          <td>${html(course.nptelId)}</td>
+          <td>${html(course.maxMark)}</td>
+          <td>${html(course.week)}</td>
+          <td>${status}</td>
+          <td>${matchText}</td>
+        </tr>`;
+      }).join('');
+      return `<div class="section-title">Extra / Reusable Courses</div>
         <div class="pill-row">
           <span class="pill pass">Extra courses ${fmt(courses.length)}</span>
+          <span class="pill ${reusableCount ? 'warn' : 'blue'}">Also fits other domains ${fmt(reusableCount)}</span>
           <span class="pill">These are not needed for the selected exception eligibility set</span>
         </div>
-        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain match</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function renderNonOverlapEligibility(rows) {
