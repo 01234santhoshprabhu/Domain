@@ -862,7 +862,7 @@
 
     function exceptionStats(plan) {
       if (!plan) return { lowCourses: [], belowMinCourses: [], pass: false };
-      const lowCourses = plan.courses.filter(course => course.maxMark >= 50 && course.maxMark <= 55);
+      const lowCourses = plan.courses.filter(course => course.maxMark >= 50 && course.maxMark < 55);
       const belowMinCourses = plan.courses.filter(course => course.maxMark < 50);
       return {
         lowCourses,
@@ -893,9 +893,9 @@
         const mark = Number(course.maxMark);
         const band = mark < 50
           ? '<span class="pill warn">Below 50</span>'
-          : mark <= 55
-            ? '<span class="pill blue">50-55 exception</span>'
-            : '<span class="pill pass">Above 55</span>';
+          : mark < 55
+            ? '<span class="pill blue">50-54 exception</span>'
+            : '<span class="pill pass">55 and above</span>';
         return `<tr>
           <td>${html(course.type)}</td>
           <td>${html(course.nptelId)}</td>
@@ -909,9 +909,9 @@
       return `<div class="section-title">Exception Check</div>
         <div class="pill-row">
           <span class="pill ${stats.pass ? 'pass' : 'warn'}">Exception: ${stats.pass ? 'Eligible' : 'Not eligible'}</span>
-          <span class="pill ${stats.lowCourses.length <= 1 ? 'pass' : 'warn'}">50-55 courses ${fmt(stats.lowCourses.length)} / 1 allowed</span>
+          <span class="pill ${stats.lowCourses.length <= 1 ? 'pass' : 'warn'}">50-54 courses ${fmt(stats.lowCourses.length)} / 1 allowed</span>
           <span class="pill ${stats.belowMinCourses.length ? 'warn' : 'pass'}">Below 50 courses ${fmt(stats.belowMinCourses.length)}</span>
-          <span class="pill">Rule: only one course mark can be 50-55</span>
+          <span class="pill">Rule: only one course mark can be 50-54; 55 is accepted</span>
         </div>
         <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Exception band</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
     }
@@ -926,7 +926,7 @@
           ? courses.filter((course, index) => !plan.indexes.has(index))
           : [];
         const summary = courseSummary(usedCourses);
-        const lowCourses = usedCourses.filter(course => course.maxMark >= 50 && course.maxMark <= 55);
+        const lowCourses = usedCourses.filter(course => course.maxMark >= 50 && course.maxMark < 55);
         const belowMinCourses = usedCourses.filter(course => course.maxMark < 50);
         const corePass = summary.core >= row.reqCore;
         const electivePass = summary.elective >= row.reqElective;
@@ -936,9 +936,9 @@
         const courseRows = usedCourses.map(course => {
           const band = course.maxMark < 50
             ? '<span class="pill warn">Below 50</span>'
-            : course.maxMark <= 55
-              ? '<span class="pill blue">50-55 exception</span>'
-              : '<span class="pill pass">Above 55</span>';
+            : course.maxMark < 55
+              ? '<span class="pill blue">50-54 exception</span>'
+              : '<span class="pill pass">55 and above</span>';
           return `<tr><td>${html(course.type)}</td><td>${html(course.nptelId)}</td><td>${html(course.maxMark)}</td><td>${html(course.week)}</td><td>${band}</td></tr>`;
         }).join('');
 
@@ -955,7 +955,7 @@
             ${checkBox('Average mark', dec(row.avg), '60', avgPass)}
           </div>
           <div class="pill-row">
-            <span class="pill ${lowCourses.length <= 1 ? 'pass' : 'warn'}">50-55 courses ${fmt(lowCourses.length)} / 1 allowed</span>
+            <span class="pill ${lowCourses.length <= 1 ? 'pass' : 'warn'}">50-54 courses ${fmt(lowCourses.length)} / 1 allowed</span>
             <span class="pill ${belowMinCourses.length ? 'warn' : 'pass'}">Below 50 courses ${fmt(belowMinCourses.length)}</span>
             <span class="pill">Courses used ${fmt(usedCourses.length)}</span>
             <span class="pill ${extraCourses.length ? 'pass' : 'blue'}">Extra same-domain courses ${fmt(extraCourses.length)}</span>
