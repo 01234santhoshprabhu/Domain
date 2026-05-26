@@ -748,6 +748,16 @@
       }));
     }
 
+    function courseNameForId(course) {
+      const id = clean(course.nptelId);
+      if (clean(course.courseName)) return clean(course.courseName);
+      if (!id) return '-';
+      const fromDomainCourse = state.courses.find(item => clean(item.nptelId) === id && clean(item.courseName));
+      if (fromDomainCourse) return clean(fromDomainCourse.courseName);
+      const fromScore = state.scoreRows.find(item => clean(item.nptelId) === id && clean(item.courseId));
+      return fromScore ? clean(fromScore.courseId) : '-';
+    }
+
     function eligibleDomainsForEmail(email) {
       return new Set(state.eligible
         .filter(item => normalize(item.email) === normalize(email))
@@ -1015,8 +1025,9 @@
       const rows = courses.map(course => {
         const matches = otherDomainMatches(course, row.domain);
         if (matches.length) reusableCount += 1;
+        const courseName = courseNameForId(course);
         const matchText = matches.length
-          ? matches.map(match => `${html(match.domain)} (${html(match.type || '-')})`).join('<br>')
+          ? matches.map(match => `<strong>${html(match.domain)}</strong> (${html(match.type || '-')})`).join('<br>')
           : '-';
         const status = matches.length
           ? '<span class="pill warn">Extra, also in other domain</span>'
@@ -1024,6 +1035,7 @@
         return `<tr>
           <td>${html(course.type)}</td>
           <td>${html(course.nptelId)}</td>
+          <td>${html(courseName)}</td>
           <td>${html(course.maxMark)}</td>
           <td>${html(course.week)}</td>
           <td>${status}</td>
@@ -1036,7 +1048,7 @@
           <span class="pill ${reusableCount ? 'warn' : 'blue'}">Also fits other domains ${fmt(reusableCount)}</span>
           <span class="pill">These are not needed for the selected exception eligibility set</span>
         </div>
-        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain match</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Status</th><th>Other domain names</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function renderNonOverlapEligibility(rows) {
