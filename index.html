@@ -811,6 +811,14 @@
           .some(match => !alreadyEligibleDomains.has(normalize(match.domain))));
     }
 
+    function reusableLeftScore(allCourses, chosenCourses, row) {
+      const chosen = new Set(chosenCourses);
+      return allCourses
+        .filter(course => !chosen.has(course))
+        .filter(course => otherDomainMatches(course, row.domain).length)
+        .length;
+    }
+
     function renderExtraCourseReuseCheck(row, courses) {
       if (!courses.length) {
         return `<div class="section-title">Extra Course Future Domain Check</div>
@@ -872,11 +880,12 @@
           row,
           courses: picked,
           summary,
-          ids: new Set(picked.map(course => clean(course.nptelId)).filter(Boolean))
+          ids: new Set(picked.map(course => clean(course.nptelId)).filter(Boolean)),
+          reusableLeft: reusableLeftScore(courses, picked, row)
         });
       }
       return plans
-        .sort((a, b) => a.courses.length - b.courses.length || a.summary.weeks - b.summary.weeks || b.summary.avg - a.summary.avg)
+        .sort((a, b) => a.courses.length - b.courses.length || b.reusableLeft - a.reusableLeft || a.summary.weeks - b.summary.weeks || b.summary.avg - a.summary.avg)
         .slice(0, 120);
     }
 
@@ -1036,13 +1045,14 @@
       function better(candidate) {
         if (!best) return true;
         if (candidate.courses.length !== best.courses.length) return candidate.courses.length < best.courses.length;
+        if (candidate.reusableLeft !== best.reusableLeft) return candidate.reusableLeft > best.reusableLeft;
         if (candidate.summary.avg !== best.summary.avg) return candidate.summary.avg > best.summary.avg;
         return candidate.summary.weeks > best.summary.weeks;
       }
 
       function walk(position, chosen, indexes) {
         if (visits++ > 50000) return;
-        if (best && chosen.length >= best.courses.length) return;
+        if (best && chosen.length > best.courses.length) return;
         if (hasOrGroupConflict(chosen)) return;
         const summary = courseSummary(chosen);
         const stats = exceptionStats({ courses: chosen });
@@ -1052,7 +1062,7 @@
           && summary.avg >= 60
           && stats.pass;
         if (passes) {
-          const candidate = { courses: [...chosen], indexes: new Set(indexes), summary };
+          const candidate = { courses: [...chosen], indexes: new Set(indexes), summary, reusableLeft: reusableLeftScore(courses, chosen, row) };
           if (better(candidate)) best = candidate;
           return;
         }
