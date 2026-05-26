@@ -974,7 +974,19 @@
             : course.maxMark < 55
               ? '<span class="pill blue">50-54 exception</span>'
               : '<span class="pill pass">55 and above</span>';
-          return `<tr><td>${html(course.type)}</td><td>${html(course.nptelId)}</td><td>${html(course.maxMark)}</td><td>${html(course.week)}</td><td>${band}</td></tr>`;
+          const matches = otherDomainMatches(course, row.domain);
+          const matchText = matches.length
+            ? matches.map(match => `<strong>${html(match.domain)}</strong> (${html(match.type || '-')})`).join('<br>')
+            : '-';
+          return `<tr>
+            <td>${html(course.type)}</td>
+            <td>${html(course.nptelId)}</td>
+            <td>${html(courseNameForId(course))}</td>
+            <td>${html(course.maxMark)}</td>
+            <td>${html(course.week)}</td>
+            <td>${band}</td>
+            <td>${matchText}</td>
+          </tr>`;
         }).join('');
 
         return `<section class="card">
@@ -995,7 +1007,7 @@
             <span class="pill">Courses used ${fmt(usedCourses.length)}</span>
             <span class="pill ${extraCourses.length ? 'pass' : 'blue'}">Extra same-domain courses ${fmt(extraCourses.length)}</span>
           </div>
-          <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Exception band</th></tr></thead><tbody>${courseRows || '<tr><td colspan="5" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
+          <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Exception band</th><th>Other domain names</th></tr></thead><tbody>${courseRows || '<tr><td colspan="7" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
           ${renderExceptionExtraCourses(row, extraCourses)}
         </section>`;
       }).join('');
