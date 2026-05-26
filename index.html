@@ -904,15 +904,20 @@
       if (!rows.length) return '';
       return rows.map(row => {
         const courses = exceptionCoursesFor(row);
-        const summary = courseSummary(courses);
-        const lowCourses = courses.filter(course => course.maxMark >= 50 && course.maxMark <= 55);
-        const belowMinCourses = courses.filter(course => course.maxMark < 50);
-        const corePass = row.sheetCore >= row.reqCore;
-        const electivePass = row.sheetElective >= row.reqElective;
-        const weeksPass = row.totalWeeks >= row.weeksRequired;
-        const avgPass = row.avg >= 60;
-        const exceptionPass = corePass && electivePass && weeksPass && avgPass && lowCourses.length <= 1 && belowMinCourses.length === 0;
-        const courseRows = courses.map(course => {
+        const plan = exceptionCandidatePlan(row, courses);
+        const usedCourses = plan ? plan.courses : courses;
+        const extraCourses = plan
+          ? courses.filter((course, index) => !plan.indexes.has(index))
+          : [];
+        const summary = courseSummary(usedCourses);
+        const lowCourses = usedCourses.filter(course => course.maxMark >= 50 && course.maxMark <= 55);
+        const belowMinCourses = usedCourses.filter(course => course.maxMark < 50);
+        const corePass = summary.core >= row.reqCore;
+        const electivePass = summary.elective >= row.reqElective;
+        const weeksPass = summary.weeks >= row.weeksRequired;
+        const avgPass = summary.avg >= 60;
+        const exceptionPass = !!plan;
+        const courseRows = usedCourses.map(course => {
           const band = course.maxMark < 50
             ? '<span class="pill warn">Below 50</span>'
             : course.maxMark <= 55
@@ -936,12 +941,73 @@
           <div class="pill-row">
             <span class="pill ${lowCourses.length <= 1 ? 'pass' : 'warn'}">50-55 courses ${fmt(lowCourses.length)} / 1 allowed</span>
             <span class="pill ${belowMinCourses.length ? 'warn' : 'pass'}">Below 50 courses ${fmt(belowMinCourses.length)}</span>
-            <span class="pill">Courses used ${fmt(courses.length)}</span>
-            <span class="pill">Course rows summary: Core ${fmt(summary.core)}, Elective ${fmt(summary.elective)}, Weeks ${fmt(summary.weeks)}, Avg ${dec(summary.avg)}</span>
+            <span class="pill">Courses used ${fmt(usedCourses.length)}</span>
+            <span class="pill ${extraCourses.length ? 'pass' : 'blue'}">Extra same-domain courses ${fmt(extraCourses.length)}</span>
           </div>
           <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Exception band</th></tr></thead><tbody>${courseRows || '<tr><td colspan="5" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
+          ${renderExceptionExtraCourses(extraCourses)}
         </section>`;
       }).join('');
+    }
+
+    function exceptionCandidatePlan(row, courses) {
+      if (!courses.length) return null;
+      const ordered = courses
+        .map((course, index) => ({ course, index }))
+        .sort((a, b) => b.course.maxMark - a.course.maxMark || b.course.week - a.course.week);
+      let best = null;
+      let visits = 0;
+
+      function better(candidate) {
+        if (!best) return true;
+        if (candidate.courses.length !== best.courses.length) return candidate.courses.length < best.courses.length;
+        if (candidate.summary.avg !== best.summary.avg) return candidate.summary.avg > best.summary.avg;
+        return candidate.summary.weeks > best.summary.weeks;
+      }
+
+      function walk(position, chosen, indexes) {
+        if (visits++ > 50000) return;
+        if (best && chosen.length >= best.courses.length) return;
+        const summary = courseSummary(chosen);
+        const stats = exceptionStats({ courses: chosen });
+        const passes = summary.core >= row.reqCore
+          && summary.elective >= row.reqElective
+          && summary.weeks >= row.weeksRequired
+          && summary.avg >= 60
+          && stats.pass;
+        if (passes) {
+          const candidate = { courses: [...chosen], indexes: new Set(indexes), summary };
+          if (better(candidate)) best = candidate;
+          return;
+        }
+        if (position >= ordered.length) return;
+        const item = ordered[position];
+        walk(position + 1, [...chosen, item.course], new Set([...indexes, item.index]));
+        walk(position + 1, chosen, indexes);
+      }
+
+      walk(0, [], new Set());
+      return best;
+    }
+
+    function renderExceptionExtraCourses(courses) {
+      if (!courses.length) {
+        return `<div class="section-title">Extra Courses Taken in Same Domain</div>
+          <div class="pill-row"><span class="pill blue">No extra same-domain courses after eligibility set</span></div>`;
+      }
+      const rows = courses.map(course => `<tr>
+        <td>${html(course.type)}</td>
+        <td>${html(course.nptelId)}</td>
+        <td>${html(course.maxMark)}</td>
+        <td>${html(course.week)}</td>
+        <td><span class="pill pass">Extra in same domain</span></td>
+      </tr>`).join('');
+      return `<div class="section-title">Extra Courses Taken in Same Domain</div>
+        <div class="pill-row">
+          <span class="pill pass">Extra courses ${fmt(courses.length)}</span>
+          <span class="pill">These are not needed for the selected exception eligibility set</span>
+        </div>
+        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Mark</th><th>Weeks</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
 
     function renderNonOverlapEligibility(rows) {
