@@ -667,6 +667,17 @@
       });
     }
 
+    function orGroupLabel(value) {
+      const group = clean(value);
+      if (!group || !group.includes('|')) return '-';
+      return group.split('|').map(clean).filter(Boolean).join(' OR ');
+    }
+
+    function groupForCourse(domain, courseId) {
+      const row = state.domainRows.find(item => normalize(item.course) === normalize(domain) && clean(item.id) === clean(courseId));
+      return row ? row.group : clean(courseId);
+    }
+
 
     function scoreRowsForEmail(email) {
       return state.scoreByEmail.get(normalize(email)) || [];
@@ -981,6 +992,7 @@
           return `<tr>
             <td>${html(course.type)}</td>
             <td>${html(course.nptelId)}</td>
+            <td>${orGroupLabel(course.group) === '-' ? '-' : `<span class="pill blue">${html(orGroupLabel(course.group))}</span>`}</td>
             <td>${html(courseNameForId(course))}</td>
             <td>${html(course.maxMark)}</td>
             <td>${html(course.week)}</td>
@@ -1007,7 +1019,7 @@
             <span class="pill">Courses used ${fmt(usedCourses.length)}</span>
             <span class="pill ${extraCourses.length ? 'pass' : 'blue'}">Extra same-domain courses ${fmt(extraCourses.length)}</span>
           </div>
-          <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Exception band</th><th>Other domain names</th></tr></thead><tbody>${courseRows || '<tr><td colspan="7" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
+          <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>OR course group</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Exception band</th><th>Other domain names</th></tr></thead><tbody>${courseRows || '<tr><td colspan="8" class="empty">No exception course rows found.</td></tr>'}</tbody></table></div>
           ${renderExceptionExtraCourses(row, extraCourses)}
         </section>`;
       }).join('');
@@ -1162,6 +1174,7 @@
 
     function renderDomainIdComparison(row) {
       const domainRows = domainListRowsForDomain(row.domain);
+      const orGroupCount = new Set(domainRows.map(item => item.group).filter(group => clean(group).includes('|'))).size;
       const summary = {
         total: domainRows.length,
         core: domainRows.filter(item => normalize(item.type) === 'core').length,
@@ -1174,7 +1187,15 @@
         const matchText = matches.length
           ? matches.map(match => `${html(match.courseId)} | ${html(match.nptelId)} | Score ${html(match.finalScore)} | Week ${html(match.week)}`).join('<br>')
           : '-';
-        return `<tr><td>${html(item.type)}</td><td>${html(item.id)}</td><td>${html(item.course)}</td><td>${matches.length ? '<span class="pill pass">Taken</span>' : '<span class="pill warn">Not taken</span>'}</td><td>${matchText}</td></tr>`;
+        const orText = orGroupLabel(item.group);
+        return `<tr>
+          <td>${html(item.type)}</td>
+          <td>${html(item.id)}</td>
+          <td>${orText === '-' ? '-' : `<span class="pill blue">${html(orText)}</span>`}</td>
+          <td>${html(item.course)}</td>
+          <td>${matches.length ? '<span class="pill pass">Taken</span>' : '<span class="pill warn">Not taken</span>'}</td>
+          <td>${matchText}</td>
+        </tr>`;
       }).join('');
 
       return `<div class="section-title">Domain List IDs compared with Student Score sheet</div>
@@ -1182,9 +1203,10 @@
           <span class="pill">Domain list IDs ${fmt(summary.total)}</span>
           <span class="pill">Core IDs ${fmt(summary.core)}</span>
           <span class="pill blue">Elective IDs ${fmt(summary.elective)}</span>
+          <span class="pill ${orGroupCount ? 'warn' : 'blue'}">OR course groups ${fmt(orGroupCount)}</span>
           <span class="pill ${summary.taken ? 'pass' : 'warn'}">Taken IDs ${fmt(summary.taken)}</span>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Domain Type</th><th>Domain ID</th><th>Domain</th><th>Student score match</th><th>Student Score CourseId / NPTEL / Score / Week</th></tr></thead><tbody>${tableRows || '<tr><td colspan="5" class="empty">No domain list IDs found for this domain.</td></tr>'}</tbody></table></div>`;
+        <div class="table-wrap"><table><thead><tr><th>Domain Type</th><th>Domain ID</th><th>OR course group</th><th>Domain</th><th>Student score match</th><th>Student Score CourseId / NPTEL / Score / Week</th></tr></thead><tbody>${tableRows || '<tr><td colspan="6" class="empty">No domain list IDs found for this domain.</td></tr>'}</tbody></table></div>`;
     }
 
     function checkBox(label, got, req, pass, suffix = '') {
@@ -1306,7 +1328,19 @@
         const exceptionPass = !calculatedPass && !!bestPlan;
         const substitutionPass = substitutionCandidates(row, courses).some(item => item.eligible);
         const statusLabel = calculatedPass ? 'Eligible' : exceptionPass ? 'Eligible with additional course' : 'Not eligible';
-        const courseRows = courses.map(course => `<tr><td>${html(course.type)}</td><td>${html(course.nptelId)}</td><td>${html(course.courseName)}</td><td>${html(course.maxMark)}</td><td>${html(course.week)}</td><td>${html(course.comments || '-')}</td></tr>`).join('');
+        const courseRows = courses.map(course => {
+          const group = groupForCourse(row.domain, course.nptelId);
+          const orText = orGroupLabel(group);
+          return `<tr>
+            <td>${html(course.type)}</td>
+            <td>${html(course.nptelId)}</td>
+            <td>${orText === '-' ? '-' : `<span class="pill blue">${html(orText)}</span>`}</td>
+            <td>${html(course.courseName)}</td>
+            <td>${html(course.maxMark)}</td>
+            <td>${html(course.week)}</td>
+            <td>${html(course.comments || '-')}</td>
+          </tr>`;
+        }).join('');
         const extraIds = bestPlan
           ? [...bestPlan.ids].filter(id => !courses.some(course => clean(course.nptelId) === clean(id)))
           : [];
@@ -1338,7 +1372,7 @@
           ${renderCertifiedOverlap(row, courses)}
           ${renderDomainIdComparison(row)}
           <div class="section-title">Domain Course List rows used for this check</div>
-          <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Max Mark</th><th>Weeks</th><th>Comments</th></tr></thead><tbody>${courseRows || '<tr><td colspan="6" class="empty">No course rows found for this email/domain.</td></tr>'}</tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>OR course group</th><th>Course Name</th><th>Max Mark</th><th>Weeks</th><th>Comments</th></tr></thead><tbody>${courseRows || '<tr><td colspan="7" class="empty">No course rows found for this email/domain.</td></tr>'}</tbody></table></div>
         </section>`;
       }).join('') : '';
       els.resultList.innerHTML = mainHtml + renderExceptionCandidateResults(exceptionRows);
