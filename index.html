@@ -775,6 +775,62 @@
       return { paperEligible: eligibleRows.length, best };
     }
 
+    function exceptionStats(plan) {
+      if (!plan) return { lowCourses: [], belowMinCourses: [], pass: false };
+      const lowCourses = plan.courses.filter(course => course.maxMark >= 50 && course.maxMark <= 55);
+      const belowMinCourses = plan.courses.filter(course => course.maxMark < 50);
+      return {
+        lowCourses,
+        belowMinCourses,
+        pass: lowCourses.length <= 1 && belowMinCourses.length === 0
+      };
+    }
+
+    function exceptionPlans(row) {
+      return validCoursePlans(row).filter(plan => exceptionStats(plan).pass);
+    }
+
+    function renderExceptionCheck(row) {
+      const normalPlans = validCoursePlans(row);
+      const eligibleExceptionPlans = exceptionPlans(row);
+      const plan = eligibleExceptionPlans[0] || normalPlans[0];
+      const stats = exceptionStats(plan);
+
+      if (!normalPlans.length) {
+        return `<div class="section-title">Exception Check</div>
+          <div class="pill-row">
+            <span class="pill warn">Exception: Not eligible</span>
+            <span class="pill warn">Core/elective/weeks/average requirement not met</span>
+          </div>`;
+      }
+
+      const tableRows = plan.courses.map(course => {
+        const mark = Number(course.maxMark);
+        const band = mark < 50
+          ? '<span class="pill warn">Below 50</span>'
+          : mark <= 55
+            ? '<span class="pill blue">50-55 exception</span>'
+            : '<span class="pill pass">Above 55</span>';
+        return `<tr>
+          <td>${html(course.type)}</td>
+          <td>${html(course.nptelId)}</td>
+          <td>${html(course.courseName)}</td>
+          <td>${html(course.maxMark)}</td>
+          <td>${html(course.week)}</td>
+          <td>${band}</td>
+        </tr>`;
+      }).join('');
+
+      return `<div class="section-title">Exception Check</div>
+        <div class="pill-row">
+          <span class="pill ${stats.pass ? 'pass' : 'warn'}">Exception: ${stats.pass ? 'Eligible' : 'Not eligible'}</span>
+          <span class="pill ${stats.lowCourses.length <= 1 ? 'pass' : 'warn'}">50-55 courses ${fmt(stats.lowCourses.length)} / 1 allowed</span>
+          <span class="pill ${stats.belowMinCourses.length ? 'warn' : 'pass'}">Below 50 courses ${fmt(stats.belowMinCourses.length)}</span>
+          <span class="pill">Rule: only one course mark can be 50-55</span>
+        </div>
+        <div class="table-wrap compact"><table><thead><tr><th>Type</th><th>NPTEL ID</th><th>Course Name</th><th>Mark</th><th>Weeks</th><th>Exception band</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
+    }
+
     function renderNonOverlapEligibility(rows) {
       if (rows.length < 2) return '';
       const result = nonOverlapPlan(rows);
@@ -1004,6 +1060,7 @@
             ${row.finalComments ? `<span class="pill blue">${html(row.finalComments)}</span>` : ''}
             ${row.remarks ? `<span class="pill warn">${html(row.remarks)}</span>` : ''}
           </div>
+          ${renderExceptionCheck(row)}
           ${renderSubstitutionCheck(row, courses)}
           ${renderExtraCourseReuseCheck(row, courses)}
           ${renderCertifiedOverlap(row, courses)}
