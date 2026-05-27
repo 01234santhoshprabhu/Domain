@@ -328,6 +328,9 @@
           <div class="stat"><div id="candidateCount" class="value">0</div><div class="label">Candidate emails</div></div>
           <div class="stat"><div id="courseCount" class="value">0</div><div class="label">Domain course rows</div></div>
           <div class="stat"><div id="domainCount" class="value">0</div><div class="label">Overall domain list rows</div></div>
+          <div class="stat" title="All candidate-domain rows in the exception source file"><div id="exceptionRawRowsCount" class="value">0</div><div class="label">Exception raw rows</div></div>
+          <div class="stat" title="Unique email IDs in the exception source file"><div id="exceptionCandidateCount" class="value">0</div><div class="label">Exception candidates</div></div>
+          <div class="stat" title="Exception candidates with more than one eligible domain row"><div id="exceptionMultiDomainCount" class="value">0</div><div class="label">Multi-domain exception</div></div>
           <div class="stat" title="Exception records after removing main-sheet and already-certified matches"><div id="exceptionEligibleCount" class="value">0</div><div class="label">Exception eligible</div></div>
           <div class="stat" title="Exception records after removing main-sheet and already-certified matches"><div id="exceptionNotEligibleCount" class="value">0</div><div class="label">Exception not eligible</div></div>
         </section>
@@ -369,6 +372,9 @@
       candidateCount: document.getElementById('candidateCount'),
       courseCount: document.getElementById('courseCount'),
       domainCount: document.getElementById('domainCount'),
+      exceptionRawRowsCount: document.getElementById('exceptionRawRowsCount'),
+      exceptionCandidateCount: document.getElementById('exceptionCandidateCount'),
+      exceptionMultiDomainCount: document.getElementById('exceptionMultiDomainCount'),
       exceptionEligibleCount: document.getElementById('exceptionEligibleCount'),
       exceptionNotEligibleCount: document.getElementById('exceptionNotEligibleCount'),
       emailSearch: document.getElementById('emailSearch'),
@@ -589,9 +595,20 @@
 
       els.eligibleCount.textContent = fmt(state.eligible.length);
       const candidateTotal = new Set(state.eligible.map(row => normalize(row.email))).size;
+      const exceptionByEmail = new Map();
+      state.exceptionEligible.forEach(row => {
+        const email = normalize(row.email);
+        if (!email) return;
+        if (!exceptionByEmail.has(email)) exceptionByEmail.set(email, new Set());
+        exceptionByEmail.get(email).add(normalize(row.domain));
+      });
+      const exceptionMultiDomain = [...exceptionByEmail.values()].filter(domains => domains.size > 1).length;
       els.candidateCount.textContent = fmt(candidateTotal);
       els.courseCount.textContent = fmt(state.courses.length);
       els.domainCount.textContent = fmt(state.domainRows.length);
+      els.exceptionRawRowsCount.textContent = fmt(state.exceptionEligible.length);
+      els.exceptionCandidateCount.textContent = fmt(exceptionByEmail.size);
+      els.exceptionMultiDomainCount.textContent = fmt(exceptionMultiDomain);
       els.exceptionEligibleCount.textContent = fmt(state.exceptionSummary.eligible);
       els.exceptionNotEligibleCount.textContent = fmt(state.exceptionSummary.notEligible);
       els.loadStatus.textContent = state.exceptionEligible.length
